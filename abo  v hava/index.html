@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>هواشناسی هوشمند</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- کتابخانه‌های ضروری -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body { background: #1a2a6c; color: white; font-family: Tahoma; text-align: center; margin: 0; padding: 20px; }
+        .box { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 15px; margin: 10px auto; max-width: 500px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+        input { padding: 10px; border-radius: 10px; border: none; width: 60%; }
+        button { padding: 10px; border-radius: 10px; border: none; cursor: pointer; background: #fdbb2d; font-weight: bold; }
+        #map { height: 250px; border-radius: 15px; margin-top: 15px; }
+        .temp { font-size: 50px; font-weight: bold; margin: 10px 0; }
+        .error-log { color: #ff4b2b; font-size: 12px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <input type="text" id="cityInput" placeholder="نام شهر (مثلا Zanjan)">
+        <button onclick="searchCity()">جستجو</button>
+    </div>
+
+    <div id="weatherDisplay" class="box" style="display:none;">
+        <h2 id="cityName">---</h2>
+        <div id="temp" class="temp">--°C</div>
+        <div id="desc">---</div>
+        <div id="map"></div>
+    </div>
+
+    <div id="status" style="margin-top:20px;">در حال لود...</div>
+
+    <script>
+        const apiKey = "d271998e5408485c611fae5fc96fab6b"; // <--- حتما کد خودت را اینجا بذار
+        let map;
+
+        async function getWeatherData(lat, lon) {
+            try {
+                document.getElementById('status').innerText = "در حال دریافت اطلاعات...";
+                
+                const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=fa`);
+                
+                if (!response.ok) throw new Error("API Key اشتباه است یا فعال نشده");
+
+                const data = await response.json();
+
+                // نمایش باکس اطلاعات
+                document.getElementById('weatherDisplay').style.display = 'block';
+                document.getElementById('status').style.display = 'none';
+
+                // پر کردن داده‌ها
+                document.getElementById('cityName').innerText = data.name;
+                document.getElementById('temp').innerText = Math.round(data.main.temp) + "°C";
+                document.getElementById('desc').innerText = data.weather[0].description;
+
+                // نقشه
+                if (map) map.remove();
+                map = L.map('map').setView([lat, lon], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.marker([lat, lon]).addTo(map);
+
+            } catch (err) {
+                document.getElementById('status').innerHTML = `<b style="color:red">خطا: ${err.message}</b><br>مطمئن شو اینترنت وصله و API Key درسته.`;
+            }
+        }
+
+        async function searchCity() {
+            const city = document.getElementById('cityInput').value;
+            if (!city) return;
+            const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${apiKey}`);
+            const data = await res.json();
+            if (data.length > 0) getWeatherData(data[0].lat, data[0].lon);
+            else alert("شهر پیدا نشد!");
+        }
+
+        // لوکیشن خودکار در شروع
+        navigator.geolocation.getCurrentPosition(
+            p => getWeatherData(p.coords.latitude, p.coords.longitude),
+            () => getWeatherData(35.6892, 51.3890) // پیشفرض تهران
+        );
+    </script>
+</body>
+</html>
